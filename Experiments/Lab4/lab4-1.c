@@ -20,95 +20,63 @@
 #include "driverlib/uart.h"
 
 uint32_t ui32ADC0Value[4];
-
+uint32_t ui32ADC1Value[4];
 volatile uint32_t ui32Avg0;
+volatile uint32_t ui32Avg1;
 
-void uart_init()
+void setup(void)       // set crystal freq and enable GPIO pins
 {
+	SysCtlClockSet(SYSCTL_SYSDIV_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
 
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-	GPIOPinConfigure(GPIO_PA0_U0RX);
-	GPIOPinConfigure(GPIO_PA1_U0TX);
-
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-
-	UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
-
-	GPIOPinTypeUART(GPIO_PORTD_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-
-	GPIOPinConfigure(GPIO_PORTA_BASE|GPIO_PCTL_PA0_U0RX);
-	//GPIOPinConfigure(GPIO_PORTD_BASE|GPIO_PCTL_PD0_U0RX);
-
-	GPIOPinConfigure(GPIO_PORTA_BASE|GPIO_PCTL_PA1_U0TX);
-
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-	//GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-
-	GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    SysCtlDelay(3);
-
-    // For making PE2 as ADC input pin
-    GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_1 | GPIO_PIN_0);
-    GPIOPadConfigSet(GPIO_PORTD_BASE, GPIO_PIN_1, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
-    GPIOIntTypeSet(GPIO_PORTD_BASE,GPIO_PIN_1,GPIO_FALLING_EDGE);
-        // Make PF4 a trigger for ADC
-        GPIOADCTriggerEnable(GPIO_PORTF_BASE, GPIO_PIN_4);
-
-
-	UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
-			(UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
-
-	IntMasterEnable();
-	IntEnable(INT_UART0);
-	UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
 }
 
-void UARTIntHandler(void)
-{
-	uint32_t ui32Status;
-	ui32Status = UARTIntStatus(UART0_BASE, true);
-	UARTIntClear(UART0_BASE, ui32Status);
-	while(UARTCharsAvail(UART0_BASE))//loop while char
-	{
-		UARTCharPutNonBlocking(UART0_BASE, UARTCharGetNonBlocking(UART0_BASE)+1);
-		//echo char
-		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2); //blink LED
+void adc_init(void){
+	GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+	//  enable the ADC0 peripheral
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+	ADCSequenceConfigure(ADC0_BASE, 1, ADC_TRIGGER_PROCESSOR, 0);
+	ADCSequenceStepConfigure(ADC0_BASE, 1, 0, ADC_CTL_CH7 );
+	ADCSequenceStepConfigure(ADC0_BASE, 1, 1, ADC_CTL_CH7 );
+	ADCSequenceStepConfigure(ADC0_BASE, 1, 2, ADC_CTL_CH6 );
+	ADCSequenceStepConfigure(ADC0_BASE, 1, 3, ADC_CTL_CH6 |ADC_CTL_IE|ADC_CTL_END);
+	ADCSequenceEnable(ADC0_BASE, 1);
+	//ADC 1
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
+	ADCSequenceConfigure(ADC1_BASE, 1, ADC_TRIGGER_PROCESSOR, 0);
 
-		SysCtlDelay(SysCtlClockGet() / (1000 * 3));
-		GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0); //turn off LED
-	}
+	ADCSequenceStepConfigure(ADC1_BASE, 1, 0, ADC_CTL_CH7 );
+	ADCSequenceStepConfigure(ADC1_BASE, 1, 1, ADC_CTL_CH7 );
+	ADCSequenceStepConfigure(ADC1_BASE, 1, 2, ADC_CTL_CH6 );
+	ADCSequenceStepConfigure(ADC1_BASE, 1, 3, ADC_CTL_CH6 |ADC_CTL_IE|ADC_CTL_END);
+	ADCSequenceEnable(ADC1_BASE, 1);
 }
+
 
 int main(void)
 {
+	setup();
+	adc_init();
 	GPIOADCTriggerEnable(GPIO_PORTD_BASE, GPIO_PIN_0);
 	GPIOADCTriggerEnable(GPIO_PORTD_BASE, GPIO_PIN_1);
 
-	SysCtlClockSet(SYSCTL_SYSDIV_5|SYSCTL_USE_PLL|SYSCTL_OSC_MAIN|SYSCTL_XTAL_16MHZ);
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
 
-	//ADCHardwareOversampleConfigure(ADC0_BASE, 64);
-
-	//For ADC0 Base
-	ADCSequenceConfigure(ADC0_BASE, 1, ADC_TRIGGER_PROCESSOR, 0);
-	ADCSequenceStepConfigure(ADC0_BASE, 1, 0, ADC_CTL_CH6 | ADC_CTL_IE | ADC_CTL_END);
-	ADCSequenceStepConfigure(ADC0_BASE, 1, 1, ADC_CTL_CH6);
-	ADCSequenceStepConfigure(ADC0_BASE, 1, 2, ADC_CTL_CH6);
-	ADCSequenceStepConfigure(ADC0_BASE,1,3,ADC_CTL_CH6|ADC_CTL_IE|ADC_CTL_END);
-	ADCSequenceEnable(ADC0_BASE, 1);
-
-	while(1){
-		SysCtlDelay(5000000);
+	//For ADC1 Base
+	while(1)
+	{
+		//clear interrupt flag
+		SysCtlDelay(7000000);
 		ADCIntClear(ADC0_BASE, 3);
 		ADCProcessorTrigger(ADC0_BASE, 1);
-		while(!ADCIntStatus(ADC0_BASE, 1, false))
+		
+		ADCIntClear(ADC1_BASE, 1);
+		ADCProcessorTrigger(ADC1_BASE, 1);
+		while(!ADCIntStatus(ADC0_BASE|ADC1_BASE, 1, false))
 		{
-		}
+	}
 		ADCSequenceDataGet(ADC0_BASE, 1, ui32ADC0Value);
+		ADCSequenceDataGet(ADC1_BASE, 1, ui32ADC1Value);
 		ui32Avg0 = (ui32ADC0Value[0] + ui32ADC0Value[1] + ui32ADC0Value[2] + ui32ADC0Value[3] + 2)/4;
+		ui32Avg1 = (ui32ADC1Value[0] + ui32ADC1Value[1] + ui32ADC1Value[2] + ui32ADC1Value[3] + 2)/4;
 
 
 

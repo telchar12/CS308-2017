@@ -174,7 +174,7 @@ void man_mode(void) {
 
 			while(GPIOPinRead(GPIO_PORTF_BASE,GPIO_PIN_4) == 0) {
 				duration++; 
-				if(duration>200) 	
+				if(duration>20000) 	
 					{check=1;}
 				sw1press++;
 				SysCtlDelay(1000);
